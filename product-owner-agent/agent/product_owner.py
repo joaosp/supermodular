@@ -60,8 +60,8 @@ class ProductOwnerAgent:
             mcp_servers={
                 "po_tools": self.tools_server,
                 "atlassian": {
-                    "type": "sse",
-                    "url": self.settings.atlassian.mcp_url,
+                    "command": "npx",
+                    "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"]
                 }
             },
             allowed_tools=[
