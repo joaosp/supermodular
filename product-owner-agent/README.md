@@ -44,7 +44,9 @@ Proactively identify and visualize cross-team dependencies, conflicts, and risks
 
 - Python 3.8 or higher
 - Atlassian Cloud site with JIRA and/or Confluence
-- Anthropic API key (for Claude)
+- **One of the following for Claude authentication:**
+  - Anthropic API key, OR
+  - Claude Code CLI (installed via npm)
 - Modern web browser (for OAuth authentication)
 
 ### Setup
@@ -71,13 +73,27 @@ Edit `.env` and add your configuration:
 ATLASSIAN_MCP_URL=https://mcp.atlassian.com/v1/sse
 ATLASSIAN_SITE_URL=https://yourcompany.atlassian.net
 
-# Claude API
-ANTHROPIC_API_KEY=your_anthropic_key
-
 # Customize other settings as needed
 ```
 
-4. **Authenticate with Atlassian:**
+4. **Configure Claude authentication (choose one):**
+
+**Option A: Use Anthropic API Key (recommended for production)**
+```bash
+# In your .env file, uncomment and set:
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+```
+
+**Option B: Use Claude Code CLI (recommended for development)**
+```bash
+# Install Claude Code CLI globally:
+npm install -g @anthropic-ai/claude-code
+
+# Leave ANTHROPIC_API_KEY commented out in .env
+# The SDK will automatically use the CLI
+```
+
+5. **Authenticate with Atlassian:**
 
 When you first run the agent, it will open a browser window for OAuth authentication:
 - Log in to your Atlassian account
@@ -86,7 +102,7 @@ When you first run the agent, it will open a browser window for OAuth authentica
 
 The agent will automatically connect via the Atlassian Remote MCP Server.
 
-5. **Verify installation:**
+6. **Verify installation:**
 ```bash
 python main.py check
 ```

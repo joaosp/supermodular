@@ -1,6 +1,7 @@
 """Core Product Owner Agent implementation using Claude Agent SDK."""
 
 import asyncio
+import logging
 import sys
 from typing import Any, Dict, List, Optional
 
@@ -8,7 +9,10 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
     create_sdk_mcp_server,
-    query,
+    CLINotFoundError,
+    ProcessError,
+    PermissionResultAllow,
+    PermissionResultDeny,
 )
 
 from .config import get_settings
@@ -18,6 +22,9 @@ from .tools.translation import (
 )
 from .tools.reporting import generate_sprint_report, save_report_to_jira
 from .tools.dependency import analyze_dependencies, generate_gantt_chart
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class ProductOwnerAgent:
@@ -49,6 +56,35 @@ class ProductOwnerAgent:
             ],
         )
 
+    async def _permission_handler(
+        self, tool_name: str, input_data: dict, _context: dict
+    ) -> PermissionResultAllow:
+        """
+        Permission handler for tool usage.
+        Auto-approves all MCP tools (Product Owner and Atlassian).
+
+        Args:
+            tool_name: Name of the tool being invoked
+            input_data: Input parameters for the tool
+            _context: Additional context information (unused)
+
+        Returns:
+            PermissionResultAllow object to auto-approve all tools
+        """
+        logger.debug(f"Permission requested for tool: {tool_name}")
+        logger.debug(f"Input data: {input_data}")
+
+        # Auto-approve all MCP tools and pass through input
+        if tool_name.startswith("mcp__po_tools__") or tool_name.startswith(
+            "mcp__atlassian__"
+        ):
+            logger.debug(f"Auto-approving MCP tool: {tool_name}")
+            return PermissionResultAllow(updated_input=input_data or {})
+
+        # Default: allow all tools
+        logger.debug(f"Allowing tool: {tool_name}")
+        return PermissionResultAllow(updated_input=input_data or {})
+
     def _get_agent_options(self) -> ClaudeAgentOptions:
         """
         Get Claude Agent options with tool configuration.
@@ -56,14 +92,20 @@ class ProductOwnerAgent:
         Returns:
             Configured ClaudeAgentOptions
         """
+        mcp_servers = {
+            "po_tools": self.tools_server,
+            "atlassian": {
+                "command": "npx",
+                "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"]
+            }
+        }
+
+        logger.info(f"Configuring MCP servers: {list(mcp_servers.keys())}")
+        logger.info(f"Atlassian MCP config: command={mcp_servers['atlassian']['command']}, "
+                   f"url={mcp_servers['atlassian']['args'][-1]}")
+
         return ClaudeAgentOptions(
-            mcp_servers={
-                "po_tools": self.tools_server,
-                "atlassian": {
-                    "command": "npx",
-                    "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"]
-                }
-            },
+            mcp_servers=mcp_servers,
             allowed_tools=[
                 # Custom Product Owner tools
                 "mcp__po_tools__translate_epic_to_stories",
@@ -72,23 +114,41 @@ class ProductOwnerAgent:
                 "mcp__po_tools__save_report_to_jira",
                 "mcp__po_tools__analyze_dependencies",
                 "mcp__po_tools__generate_gantt_chart",
+                # Atlassian User & Resources
+                "mcp__atlassian__atlassianUserInfo",
+                "mcp__atlassian__getAccessibleAtlassianResources",
                 # Atlassian MCP tools (JIRA)
-                "mcp__atlassian__jira_search",
-                "mcp__atlassian__jira_get_issue",
-                "mcp__atlassian__jira_create_issue",
-                "mcp__atlassian__jira_update_issue",
-                "mcp__atlassian__jira_add_comment",
-                "mcp__atlassian__jira_get_sprint",
-                "mcp__atlassian__jira_get_board",
+                "mcp__atlassian__getJiraIssue",
+                "mcp__atlassian__editJiraIssue",
+                "mcp__atlassian__createJiraIssue",
+                "mcp__atlassian__getTransitionsForJiraIssue",
+                "mcp__atlassian__transitionJiraIssue",
+                "mcp__atlassian__lookupJiraAccountId",
+                "mcp__atlassian__searchJiraIssuesUsingJql",
+                "mcp__atlassian__addCommentToJiraIssue",
+                "mcp__atlassian__getJiraIssueRemoteIssueLinks",
+                "mcp__atlassian__getVisibleJiraProjects",
+                "mcp__atlassian__getJiraProjectIssueTypesMetadata",
                 # Atlassian MCP tools (Confluence)
-                "mcp__atlassian__confluence_search",
-                "mcp__atlassian__confluence_get_page",
-                "mcp__atlassian__confluence_create_page",
-                "mcp__atlassian__confluence_update_page",
+                "mcp__atlassian__getConfluenceSpaces",
+                "mcp__atlassian__getConfluencePage",
+                "mcp__atlassian__getPagesInConfluenceSpace",
+                "mcp__atlassian__getConfluencePageFooterComments",
+                "mcp__atlassian__getConfluencePageInlineComments",
+                "mcp__atlassian__getConfluencePageDescendants",
+                "mcp__atlassian__createConfluencePage",
+                "mcp__atlassian__updateConfluencePage",
+                "mcp__atlassian__createConfluenceFooterComment",
+                "mcp__atlassian__createConfluenceInlineComment",
+                "mcp__atlassian__searchConfluenceUsingCql",
+                # Rovo Search & Fetch
+                "mcp__atlassian__search",
+                "mcp__atlassian__fetch",
                 # Allow basic file operations
                 "Read",
                 "Write",
             ],
+            can_use_tool=self._permission_handler,
             system_prompt="""You are a Product Owner Agent specialized in Outsystems development.
 
 Your primary responsibilities are:
@@ -104,17 +164,19 @@ Guidelines:
 - Prioritize actionable insights over general observations
 
 Available Atlassian MCP tools:
-- jira_search: Search JIRA issues using JQL
-- jira_get_issue: Get detailed issue information
-- jira_create_issue: Create new JIRA issues
-- jira_update_issue: Update existing issues
-- jira_add_comment: Add comments to issues
-- jira_get_sprint: Get sprint details
-- jira_get_board: Get board information
-- confluence_search: Search Confluence pages
-- confluence_get_page: Get page content
-- confluence_create_page: Create new pages
-- confluence_update_page: Update existing pages
+- getAccessibleAtlassianResources: Get your Atlassian Cloud IDs
+- atlassianUserInfo: Get current user information
+- searchJiraIssuesUsingJql: Search JIRA issues using JQL
+- getJiraIssue: Get detailed issue information (requires cloudId and issueIdOrKey)
+- createJiraIssue: Create new JIRA issues
+- editJiraIssue: Update existing issues
+- addCommentToJiraIssue: Add comments to issues
+- getVisibleJiraProjects: List visible JIRA projects
+- search: Rovo Search for both JIRA and Confluence content
+- getConfluenceSpaces: List Confluence spaces
+- getConfluencePage: Get Confluence page content
+- createConfluencePage: Create new Confluence pages
+- searchConfluenceUsingCql: Search Confluence using CQL
 
 Custom Product Owner tools:
 - translate_epic_to_stories: Convert business epics to technical stories
@@ -147,6 +209,10 @@ then use custom tools for specialized analysis and reporting.""",
 
         Returns:
             Translation result
+
+        Raises:
+            CLINotFoundError: If Claude Code CLI is not found and ANTHROPIC_API_KEY is not set
+            ProcessError: If there's an error with the Claude CLI process
         """
         prompt = f"""Translate the epic {epic_key} into detailed technical user stories.
 
@@ -157,13 +223,30 @@ Team skills: {team_skills or 'General development'}
 Use the translate_epic_to_stories tool to fetch the epic and generate technical specifications.
 Break down the requirements into implementable stories with clear acceptance criteria."""
 
-        result = []
-        async for message in query(prompt, options=self._get_agent_options()):
-            text = self._extract_text_from_message(message)
-            if text:
-                result.append(text)
+        try:
+            options = self._get_agent_options()
+            result = []
 
-        return "".join(result)
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(prompt)
+                async for message in client.receive_response():
+                    text = self._extract_text_from_message(message)
+                    if text:
+                        result.append(text)
+
+            return "".join(result)
+        except CLINotFoundError:
+            raise CLINotFoundError(
+                "Claude Code CLI not found. Please install it with:\n"
+                "  npm install -g @anthropic-ai/claude-code\n"
+                "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
+            )
+        except ProcessError as e:
+            raise ProcessError(
+                f"Claude CLI process error (exit code: {e.exit_code}). "
+                "Try setting ANTHROPIC_API_KEY environment variable to use the API directly.",
+                exit_code=e.exit_code
+            )
 
     async def generate_report(
         self, board_id: int, sprint_id: int = 0, team_name: str = "Team"
@@ -178,6 +261,10 @@ Break down the requirements into implementable stories with clear acceptance cri
 
         Returns:
             Generated report
+
+        Raises:
+            CLINotFoundError: If Claude Code CLI is not found and ANTHROPIC_API_KEY is not set
+            ProcessError: If there's an error with the Claude CLI process
         """
         prompt = f"""Generate a comprehensive sprint progress report.
 
@@ -194,13 +281,30 @@ Use the generate_sprint_report tool to fetch sprint data and create a detailed r
 
 Format the report professionally for stakeholder consumption."""
 
-        result = []
-        async for message in query(prompt, options=self._get_agent_options()):
-            text = self._extract_text_from_message(message)
-            if text:
-                result.append(text)
+        try:
+            options = self._get_agent_options()
+            result = []
 
-        return "".join(result)
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(prompt)
+                async for message in client.receive_response():
+                    text = self._extract_text_from_message(message)
+                    if text:
+                        result.append(text)
+
+            return "".join(result)
+        except CLINotFoundError:
+            raise CLINotFoundError(
+                "Claude Code CLI not found. Please install it with:\n"
+                "  npm install -g @anthropic-ai/claude-code\n"
+                "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
+            )
+        except ProcessError as e:
+            raise ProcessError(
+                f"Claude CLI process error (exit code: {e.exit_code}). "
+                "Try setting ANTHROPIC_API_KEY environment variable to use the API directly.",
+                exit_code=e.exit_code
+            )
 
     async def analyze_risks(
         self, jql_query: str, initiative_name: str, target_date: str
@@ -215,6 +319,10 @@ Format the report professionally for stakeholder consumption."""
 
         Returns:
             Risk analysis report
+
+        Raises:
+            CLINotFoundError: If Claude Code CLI is not found and ANTHROPIC_API_KEY is not set
+            ProcessError: If there's an error with the Claude CLI process
         """
         prompt = f"""Analyze dependencies and risks for the initiative: {initiative_name}
 
@@ -232,13 +340,30 @@ Then use generate_gantt_chart to create a visual timeline.
 
 Provide a comprehensive risk assessment with actionable recommendations."""
 
-        result = []
-        async for message in query(prompt, options=self._get_agent_options()):
-            text = self._extract_text_from_message(message)
-            if text:
-                result.append(text)
+        try:
+            options = self._get_agent_options()
+            result = []
 
-        return "".join(result)
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(prompt)
+                async for message in client.receive_response():
+                    text = self._extract_text_from_message(message)
+                    if text:
+                        result.append(text)
+
+            return "".join(result)
+        except CLINotFoundError:
+            raise CLINotFoundError(
+                "Claude Code CLI not found. Please install it with:\n"
+                "  npm install -g @anthropic-ai/claude-code\n"
+                "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
+            )
+        except ProcessError as e:
+            raise ProcessError(
+                f"Claude CLI process error (exit code: {e.exit_code}). "
+                "Try setting ANTHROPIC_API_KEY environment variable to use the API directly.",
+                exit_code=e.exit_code
+            )
 
     def _extract_text_from_message(self, message: Any) -> str:
         """
@@ -288,7 +413,13 @@ Provide a comprehensive risk assessment with actionable recommendations."""
         return ""
 
     async def interactive_session(self) -> None:
-        """Start an interactive session with the agent."""
+        """
+        Start an interactive session with the agent.
+
+        Raises:
+            CLINotFoundError: If Claude Code CLI is not found and ANTHROPIC_API_KEY is not set
+            ProcessError: If there's an error with the Claude CLI process
+        """
         options = self._get_agent_options()
 
         print("Product Owner Agent - Interactive Mode")
@@ -301,23 +432,24 @@ Provide a comprehensive risk assessment with actionable recommendations."""
         print("  - exit: Exit the session")
         print("=" * 50)
 
-        async with ClaudeSDKClient(options=options) as client:
-            self.client = client
+        try:
+            async with ClaudeSDKClient(options=options) as client:
+                self.client = client
 
-            while True:
-                try:
-                    user_input = input("\nYou: ").strip()
+                while True:
+                    try:
+                        user_input = input("\nYou: ").strip()
 
-                    if not user_input:
-                        continue
+                        if not user_input:
+                            continue
 
-                    if user_input.lower() == "exit":
-                        print("Goodbye!")
-                        break
+                        if user_input.lower() == "exit":
+                            print("Goodbye!")
+                            break
 
-                    if user_input.lower() == "help":
-                        print(
-                            """
+                        if user_input.lower() == "help":
+                            print(
+                                """
 Available commands:
 - translate <epic-key>: Translate an epic to technical stories
 - report <board-id> [sprint-id]: Generate sprint progress report
@@ -325,49 +457,59 @@ Available commands:
 - custom: Any custom query about product management
 
 You can also ask questions in natural language."""
-                        )
-                        continue
+                            )
+                            continue
 
-                    # Send query to agent
-                    await client.query(user_input)
+                        # Send query to agent
+                        await client.query(user_input)
 
-                    # Thinking animation with spinner
-                    thinking_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-                    thinking_idx = 0
-                    has_output = False
+                        # Thinking animation with spinner
+                        thinking_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+                        thinking_idx = 0
+                        has_output = False
 
-                    print()  # New line before agent response
+                        print()  # New line before agent response
 
-                    # Stream response with clean text extraction and thinking animation
-                    async for message in client.receive_response():
-                        text = self._extract_text_from_message(message)
-                        if text:
-                            # Clear thinking animation and show agent label
-                            if not has_output:
-                                sys.stdout.write("\r\033[K")  # Clear line
-                                sys.stdout.write("Agent: ")
-                                sys.stdout.flush()
-                                has_output = True
-                            print(text, end="", flush=True)
+                        # Stream response with clean text extraction and thinking animation
+                        async for message in client.receive_response():
+                            text = self._extract_text_from_message(message)
+                            if text:
+                                # Clear thinking animation and show agent label
+                                if not has_output:
+                                    sys.stdout.write("\r\033[K")  # Clear line
+                                    sys.stdout.write("Agent: ")
+                                    sys.stdout.flush()
+                                    has_output = True
+                                print(text, end="", flush=True)
+                            else:
+                                # Show thinking animation while processing
+                                if not has_output:
+                                    sys.stdout.write(f"\rAgent: {thinking_chars[thinking_idx % len(thinking_chars)]} thinking...")
+                                    sys.stdout.flush()
+                                    thinking_idx += 1
+
+                        # Ensure we showed agent label even if no text
+                        if not has_output:
+                            sys.stdout.write("\r\033[K")
+                            sys.stdout.write("Agent: [No response]\n")
                         else:
-                            # Show thinking animation while processing
-                            if not has_output:
-                                sys.stdout.write(f"\rAgent: {thinking_chars[thinking_idx % len(thinking_chars)]} thinking...")
-                                sys.stdout.flush()
-                                thinking_idx += 1
+                            print()  # Final newline
 
-                    # Ensure we showed agent label even if no text
-                    if not has_output:
-                        sys.stdout.write("\r\033[K")
-                        sys.stdout.write("Agent: [No response]\n")
-                    else:
-                        print()  # Final newline
-
-                except KeyboardInterrupt:
-                    print("\n\nGoodbye!")
-                    break
-                except Exception as e:
-                    print(f"\nError: {str(e)}")
+                    except KeyboardInterrupt:
+                        print("\n\nGoodbye!")
+                        break
+                    except Exception as e:
+                        print(f"\nError: {str(e)}")
+        except CLINotFoundError:
+            print("\n❌ Claude Code CLI not found.")
+            print("Please install it with:")
+            print("  npm install -g @anthropic-ai/claude-code")
+            print("\nOr set ANTHROPIC_API_KEY environment variable to use the API directly.")
+            raise
+        except ProcessError as e:
+            print(f"\n❌ Claude CLI process error (exit code: {e.exit_code}).")
+            print("Try setting ANTHROPIC_API_KEY environment variable to use the API directly.")
+            raise
 
     async def one_shot_query(self, prompt: str) -> str:
         """
@@ -378,14 +520,38 @@ You can also ask questions in natural language."""
 
         Returns:
             Agent response
-        """
-        result = []
-        async for message in query(prompt, options=self._get_agent_options()):
-            text = self._extract_text_from_message(message)
-            if text:
-                result.append(text)
 
-        return "".join(result)
+        Raises:
+            CLINotFoundError: If Claude Code CLI is not found and ANTHROPIC_API_KEY is not set
+            ProcessError: If there's an error with the Claude CLI process
+        """
+        try:
+            options = self._get_agent_options()
+            result = []
+
+            async with ClaudeSDKClient(options=options) as client:
+                # Send the query
+                await client.query(prompt)
+
+                # Receive and collect the response
+                async for message in client.receive_response():
+                    text = self._extract_text_from_message(message)
+                    if text:
+                        result.append(text)
+
+            return "".join(result)
+        except CLINotFoundError:
+            raise CLINotFoundError(
+                "Claude Code CLI not found. Please install it with:\n"
+                "  npm install -g @anthropic-ai/claude-code\n"
+                "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
+            )
+        except ProcessError as e:
+            raise ProcessError(
+                f"Claude CLI process error (exit code: {e.exit_code}). "
+                "Try setting ANTHROPIC_API_KEY environment variable to use the API directly.",
+                exit_code=e.exit_code
+            )
 
 
 # Convenience functions for common operations

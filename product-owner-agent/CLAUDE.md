@@ -1,10 +1,17 @@
-# CLAUDE.md
+---
+description: Product Owner Agent is an AI-powered automation tool built with Claude Agent SDK and Atlassian Remote MCP Server. It automates Product Owner responsibilities for Outsystems development teams through three core capabilities:
+---
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**IMPORTANT DOCS**
+https://docs.claude.com/en/api/agent-sdk/python - contains the information about the Anthropic python claude agent SDK
+https://docs.claude.com/en/api/agent-sdk/mcp - information on how to use MCP tools and servers with the SDK
+https://docs.claude.com/en/api/agent-sdk/custom-tools - Creating, using and managing custom tools
+https://docs.claude.com/en/api/agent-sdk/permissions - permissions for tools / mcp
+https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/ - JIRA/Confluence MCP Server info
+https://support.atlassian.com/atlassian-rovo-mcp-server/docs/authentication-and-authorization/ - JIRA/Confluence MCP Authentication info
+https://support.atlassian.com/atlassian-rovo-mcp-server/docs/troubleshooting-and-verifying-your-setup/ - JIRA/Confluence MCP troubleshooting info
+MANDATORY: ALWAYS CHECK THE DOCS IF YOU ARE UNSURE OF THE CORRECT IMPLEMENTATION
 
-## Project Overview
-
-Product Owner Agent is an AI-powered automation tool built with Claude Agent SDK and Atlassian Remote MCP Server. It automates Product Owner responsibilities for Outsystems development teams through three core capabilities:
 
 1. **Business ↔ Technical Requirements Translation** - Converts JIRA epics into detailed technical specifications
 2. **Auto-generated Progress Reports** - Analyzes sprint data and generates comprehensive reports
@@ -20,7 +27,12 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your Atlassian site URL and Anthropic API key
+# Edit .env with your Atlassian site URL
+
+# Configure Claude authentication (choose one):
+# Option A: Set ANTHROPIC_API_KEY in .env (for production)
+# Option B: Install Claude Code CLI (for development):
+npm install -g @anthropic-ai/claude-code
 
 # Verify installation
 python main.py check
@@ -95,11 +107,13 @@ Pydantic-based configuration in `agent/config.py` with nested settings classes:
 - `AtlassianMCPConfig` - MCP URL, site URL, custom field mappings
 - `OutsystemsConfig` - Docs URL, version, repo path
 - `AgentConfig` - Scheduling, thresholds, scan depth
-- `ClaudeConfig` - API key
+- `ClaudeConfig` - API key (optional - falls back to CLI if not set)
 - `NotificationConfig` - Slack settings (optional)
 - `OutputConfig` - Report/chart output directories
 
-**Important**: After v0.2.0, `JiraConfig` was replaced with `AtlassianMCPConfig`. Any code referencing `settings.jira` is deprecated.
+**Important**:
+- After v0.2.0, `JiraConfig` was replaced with `AtlassianMCPConfig`. Any code referencing `settings.jira` is deprecated.
+- `ANTHROPIC_API_KEY` is now optional. If not set, the SDK automatically uses Claude Code CLI.
 
 ### Prompt Templates
 

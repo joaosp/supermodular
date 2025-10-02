@@ -101,7 +101,11 @@ class ClaudeConfig(BaseSettings):
         extra="ignore"
     )
 
-    api_key: str = Field(..., alias="ANTHROPIC_API_KEY")
+    api_key: Optional[str] = Field(
+        None,
+        alias="ANTHROPIC_API_KEY",
+        description="Anthropic API key. If not set, the SDK will use Claude Code CLI as fallback."
+    )
 
 
 class NotificationConfig(BaseSettings):
