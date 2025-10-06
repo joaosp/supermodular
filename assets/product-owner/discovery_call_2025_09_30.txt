@@ -1,0 +1,97 @@
+# João : supermodular.ai weekly
+
+Tue, 30 Sept 25 · André Lago, Francisco Araujo, Miguel Loureiro
+
+### Claude 4.5 Launch e Implicações
+
+- Versão nova lançada ontem com duas funcionalidades chave
+  - Longevidade do modelo: tarefas até 30 horas (anteriormente 5 horas no benchmark)
+  - SDK para construção de agentes independentes, não apenas dentro do Claude Code
+- Mudança de mindset necessária: trazer AI para o mundo real através da robótica
+  - Investimento asiático já focado em aplicações físicas
+  - Elon Musk como referência com Neuralink, Optimus e carros autónomos
+
+### Templates e Ferramentas de Agentes
+
+- Partilhar template agente code review recursivo
+  - Templates abstraídos de todos os agentes criados
+  - Placeholders preenchíveis com prompt para modelos de contexto largo
+  - Possibilidade de preenchimento manual específico por use case
+
+### Estratégia de Adoção AI nas Organizações
+
+- Duas abordagens principais identificadas:
+  - Progressive AI enablement: equipas existentes com POCs localizados
+  - AI native teams: equipas pequenas (2-3 pessoas) com mindset de product building
+- Requisitos para equipas AI native:
+  - Todas as pessoas conseguem fazer shipping
+  - Representação de perfis PM, designer, engenheiro
+  - Elemento sênior de arquitetura como peça central
+  - Crescimento gradual de dificuldade de tarefas
+
+### Desafios Culturais e Organizacionais
+
+- Divisão de águas inevitável: naysayers vs champions
+- Problema do esgotamento rápido de backlog
+  - Velocidade de execução supera velocidade de decisão estratégica
+  - Risco de feature creep sem visão clara
+- Adoção viral interna mais eficaz que imposição top-down
+  - Pessoas respeitadas internamente como evangelistas
+  - Demonstrações práticas de resultados e processos
+
+### Product Owner Enhancement - Três Pilares Principais
+
+- Business Requirements <> Technical Requirements Translation
+- Auto-generated Progress Reports
+- Risk & Dependency Alerts
+- Fluxo detalhado no PDLC (Product Development Lifecycle):
+  - Plan Discovery & Solution Definition
+    - Review and align with PM initiative’s vision
+    - Understand problem statement, outcomes, and key success metrics
+  - Plan Solution Delivery and Validation
+    - Validate use cases, success metrics, and conceptual design
+    - Ensure readiness for solution definition
+  - Gather All Backlog Sources
+    - Break initiative into team epics
+    - Collect requirements from multiple sources
+  - Dependencies & Readiness for Planning
+    - Manage dependencies across teams
+    - Act as gatekeeper for readiness before planning
+    - Create incremental release plan
+  - Delivery, Launch & Communication
+    - Build and manage the team backlog
+    - Act as DoD (Definition of Done) gatekeeper
+    - Prepare iterative demos
+    - Support fine-grained feature communication
+
+### Product Management com AI - Workflow Proposto
+
+- Objetivo: maximizar função core do PM sem dispersão atual
+- Processo end-to-end melhorado:
+  - Research com LLMs + contexto específico do produto
+  - Mockups rápidos com ferramentas como Lovable configuradas com design system
+  - Conversas com agente arquiteto para feasibility técnica
+  - Assets concretos para feedback mais efetivo
+- Trio fundamental: PM + Designer + Developer trabalhando com assets reais
+  - Reuniões com output obrigatório de protótipos funcionais
+  - Mudança de mindset de accountability e ownership
+
+### Resistência e Adoção por PMs
+
+- Mindset defensivo prevalecente na comunidade PM
+  - Medo da indefinição do role futuro
+  - Falta de conhecimento sobre como alavancar ferramentas AI
+- Oportunidade de maximizar todos os vetores do PM tradicionalmente dispersos:
+  - Customer/user research, market analysis, competitive analysis
+  - Epic writing, story breakdown, analytics, SQL para cohort analysis
+
+### Próximos Passos
+
+- Foco desta semana: projeto de enhancement do Product Owner
+- Duas vertentes em paralelo:
+  - AI native team (futuro idealizado)
+  - Progressive enhancement (otimização dentro do PDLC atual)
+- Francisco vai definir equipa core e narrativa para thought leadership
+- Colaboração via Slack com vídeos explicativos para contexto assíncrono
+- Acesso a casos reais para demonstrações mais impactantes
+
