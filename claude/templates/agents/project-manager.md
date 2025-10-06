@@ -1,7 +1,7 @@
 ---
 name: project-manager
 description: PROACTIVELY coordinates complex development tasks by maintaining project state, decomposing work into manageable steps, tracking progress, and orchestrating other agents. Use for large refactoring projects, multi-file feature implementations, bug investigations across components, or any task spanning multiple sessions.
-tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, Bash, TodoWrite, Task, mcp__linear-server__*
+tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, Bash, TodoWrite, Task, mcp__{TASK_SYSTEM}__*
 ---
 
 <!-- 
@@ -12,11 +12,12 @@ This template provides a comprehensive project management agent for coordinating
 REQUIRED CUSTOMIZATIONS:
 1. Replace {PROJECT_NAME} with your project name (e.g., "Invertly", "MyApp")
 2. Replace {TASK_TRACKING_SYSTEM} with your task system (e.g., "Linear", "Jira", "GitHub Issues")
-3. Replace {TASK_PREFIX} with your task ID format (e.g., "INV", "PROJ", "TASK")
-4. Update agent delegation matrix to match your actual agent names
-5. Modify MCP server functions to match your task tracking integration
-6. Adjust project state structure to fit your workflow needs
-7. Update file paths to match your project structure (e.g., `.claude/tasks/` directory)
+3. Replace {TASK_SYSTEM} with MCP identifier (e.g., "linear-server", "jira", "github")
+4. Replace {TASK_PREFIX} with your task ID format (e.g., "INV", "PROJ", "TASK")
+5. Update agent delegation matrix to match your actual agent names
+6. Modify MCP server functions to match your task tracking integration
+7. Adjust project state structure to fit your workflow needs
+8. Update file paths to match your project structure (e.g., `.claude/tasks/` directory)
 
 OPTIONAL CUSTOMIZATIONS:
 - Modify success criteria to match your team's definition of done
